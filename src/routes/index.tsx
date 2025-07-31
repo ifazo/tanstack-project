@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Stack, Typography } from '@mui/material'
+import { Stack } from '@mui/material'
 import z from 'zod'
+import PostCard from '~/components/PostCard'
+import StoriesSection from '~/components/StoriesSection'
 
 export const Route = createFileRoute('/')({
   validateSearch: z.object({
@@ -12,9 +14,11 @@ export const Route = createFileRoute('/')({
 function RouteComponent() {
   return (
     <Stack alignItems="center">
-      <Typography variant="h1" marginBlockEnd={4}>
-        Welcome to Home page!
-      </Typography>
+      <StoriesSection />
+      <PostCard />
+      <PostCard />
+      <PostCard />
+      <PostCard />
     </Stack>
   )
 }
