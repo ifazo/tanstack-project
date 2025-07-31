@@ -14,6 +14,7 @@ import React from 'react'
 import { theme } from '~/setup/theme'
 import Topbar from '~/components/Topbar'
 import Navbar from '~/components/Navbar'
+import { ClerkProvider } from '@clerk/tanstack-react-start'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -45,6 +46,7 @@ function Providers({ children }: { children: React.ReactNode }) {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
+      <ClerkProvider>
     <html>
       <head>
         <HeadContent />
@@ -62,5 +64,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <Scripts />
       </body>
     </html>
+     </ClerkProvider>
   )
 }
