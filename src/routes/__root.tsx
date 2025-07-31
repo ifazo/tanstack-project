@@ -12,7 +12,8 @@ import createCache from '@emotion/cache'
 import fontsourceVariableRobotoCss from '@fontsource-variable/roboto?url'
 import React from 'react'
 import { theme } from '~/setup/theme'
-import { Header } from '~/components/Header'
+import Topbar from '~/components/Topbar'
+import Navbar from '~/components/Navbar'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -50,11 +51,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <Providers>
-          <Header />
-
+          <Topbar />
           <Container component="main" sx={{ paddingBlock: 4 }}>
             {children}
           </Container>
+          <Navbar />
         </Providers>
 
         <TanStackRouterDevtools position="bottom-right" />

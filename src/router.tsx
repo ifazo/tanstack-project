@@ -6,7 +6,7 @@ export function createRouter() {
     routeTree,
     defaultPreload: 'intent',
     defaultErrorComponent: (err) => <p>{err.error.stack}</p>,
-    defaultNotFoundComponent: () => <p>not found</p>,
+    defaultNotFoundComponent: () => <p>Page not found!</p>,
     scrollRestoration: true,
   })
 
