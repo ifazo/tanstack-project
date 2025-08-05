@@ -11,7 +11,7 @@ import { useRouter } from '@tanstack/react-router';
 
 const navItems = [
   { label: 'Home', icon: <HomeIcon />, path: '/' },
-  { label: 'Favorites', icon: <FavoriteIcon />, path: '/favorites' },
+  { label: 'Favorite', icon: <FavoriteIcon />, path: '/favorite' },
   { label: 'Chat', icon: <QuestionAnswerIcon />, path: '/chat' },
   { label: 'History', icon: <RestoreIcon />, path: '/history' },
   { label: 'Profile', icon: <AccountCircleIcon />, path: '/profile' },

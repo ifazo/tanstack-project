@@ -9,12 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as FavoriteRouteImport } from './routes/favorite'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as ChatUserIdRouteImport } from './routes/chat.$userId'
 
+const SignUpRoute = SignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -23,6 +30,11 @@ const SignInRoute = SignInRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FavoriteRoute = FavoriteRouteImport.update({
+  id: '/favorite',
+  path: '/favorite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -43,44 +55,81 @@ const ChatUserIdRoute = ChatUserIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/favorite': typeof FavoriteRoute
   '/profile': typeof ProfileRoute
   '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/chat/$userId': typeof ChatUserIdRoute
   '/chat': typeof ChatIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/favorite': typeof FavoriteRoute
   '/profile': typeof ProfileRoute
   '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/chat/$userId': typeof ChatUserIdRoute
   '/chat': typeof ChatIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/favorite': typeof FavoriteRoute
   '/profile': typeof ProfileRoute
   '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/chat/$userId': typeof ChatUserIdRoute
   '/chat/': typeof ChatIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/profile' | '/sign-in' | '/chat/$userId' | '/chat'
+  fullPaths:
+    | '/'
+    | '/favorite'
+    | '/profile'
+    | '/sign-in'
+    | '/sign-up'
+    | '/chat/$userId'
+    | '/chat'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/profile' | '/sign-in' | '/chat/$userId' | '/chat'
-  id: '__root__' | '/' | '/profile' | '/sign-in' | '/chat/$userId' | '/chat/'
+  to:
+    | '/'
+    | '/favorite'
+    | '/profile'
+    | '/sign-in'
+    | '/sign-up'
+    | '/chat/$userId'
+    | '/chat'
+  id:
+    | '__root__'
+    | '/'
+    | '/favorite'
+    | '/profile'
+    | '/sign-in'
+    | '/sign-up'
+    | '/chat/$userId'
+    | '/chat/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FavoriteRoute: typeof FavoriteRoute
   ProfileRoute: typeof ProfileRoute
   SignInRoute: typeof SignInRoute
+  SignUpRoute: typeof SignUpRoute
   ChatUserIdRoute: typeof ChatUserIdRoute
   ChatIndexRoute: typeof ChatIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sign-in': {
       id: '/sign-in'
       path: '/sign-in'
@@ -93,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/favorite': {
+      id: '/favorite'
+      path: '/favorite'
+      fullPath: '/favorite'
+      preLoaderRoute: typeof FavoriteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -121,8 +177,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FavoriteRoute: FavoriteRoute,
   ProfileRoute: ProfileRoute,
   SignInRoute: SignInRoute,
+  SignUpRoute: SignUpRoute,
   ChatUserIdRoute: ChatUserIdRoute,
   ChatIndexRoute: ChatIndexRoute,
 }
