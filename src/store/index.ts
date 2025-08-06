@@ -47,12 +47,16 @@ export const removeToken = () => {
   removeFromLocalStorage('token');
 };
 
-export const saveUser = (userData: any) => {
+export const getToken = () => {
+  return store.state.token;
+};
+
+export const saveUser = (user: any) => {
   store.setState((state) => ({
     ...state,
-    user: userData,
+    user,
   }));
-  saveToLocalStorage('user', userData);
+  saveToLocalStorage('user', user);
 };
 
 export const removeUser = () => {
@@ -61,6 +65,10 @@ export const removeUser = () => {
     user: null,
   }));
   removeFromLocalStorage('user');
+};
+
+export const getUser = () => {
+  return store.state.user;
 };
 
 export const profile = (email: string) => {
@@ -84,16 +92,4 @@ export const clearAllStoredData = () => {
   removeFromLocalStorage('user');
 };
 
-export const isUserLoggedIn = () => {
-  return store.state.user !== null;
-};
-
-export const getCurrentUser = () => {
-  return store.state.user;
-};
-
-export const getToken = () => {
-  return store.state.token;
-};
-
-// export default store;
+export default store;

@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getCurrentUser, getToken } from "~/store";
+import { getUser, getToken } from "~/store";
 
 export const Route = createFileRoute("/favorite")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const user = getCurrentUser();
+  const user = getUser();
   const token = getToken();
   return (
     <div>

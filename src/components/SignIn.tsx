@@ -1,375 +1,366 @@
-import type React from "react"
-import { useState } from "react"
+import type React from "react";
+import { useState } from "react";
 import {
   Box,
-  Card,
-  CardContent,
   TextField,
   Button,
   Typography,
   Divider,
   IconButton,
   InputAdornment,
-  Fade,
+  Paper,
   Stack,
-} from "@mui/material"
+  Alert,
+  Snackbar,
+} from "@mui/material";
 import {
-  Google as GoogleIcon,
-  Facebook as FacebookIcon,
+  Google,
+  GitHub,
   Visibility,
   VisibilityOff,
-  Email as EmailIcon,
-  Lock as LockIcon,
-} from "@mui/icons-material"
-import { saveToken, saveUser } from "../store"
+  Email,
+  Lock,
+} from "@mui/icons-material";
+import { saveToken, saveUser } from "../store";
+import { Link, useRouter } from "@tanstack/react-router";
+import {
+  signInWithEmail,
+  signInWithGithub,
+  signInWithGoogle,
+} from "~/lib/firebase";
 
 export default function SignIn() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const router = useRouter();
 
-  const handleClickShowPassword = () => setShowPassword(!showPassword)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSignIn = async ({
+    name,
+    email,
+    password,
+  }: {
+    name?: string;
+    email: string;
+    password: string;
+  }) => {
     try {
-      setLoading(true)
-      setError(null)
-      if (!email || !password) {
-        setError("Email and password are required")
-        return
-      }
-      const response = await fetch("http://localhost:5000/api/auth", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
-      })
+        body: JSON.stringify({ name, email, password }),
+      });
       if (response.status !== 200) {
-        setLoading(false)
-        const errorData = await response.json()
-        setError(errorData.message || "Failed to sign in")
-        return
+        const errorData = await response.json();
+        console.error("Error sign in user:", errorData);
+        setError(errorData.message || "Failed to sign in user");
+        setShowToast(true);
+        return;
       }
-      const data = await response.json()
-      saveToken(data.token)
-      saveUser(data.user)
-      console.log("Sign in successful:", data)
-      setEmail("")
-      setPassword("")
+      const data = await response.json();
+      console.log("Sign in user response:", data);
+      saveUser(data.user);
+      saveToken(data.token);
+      return data;
     } catch (error) {
-      console.error("Sign in error:", error)
-      setError("Failed to sign in")
-      return
-    } finally {
-      setLoading(false)
+      console.error("Error signin:", error);
+      setError("Failed to sign in user");
+      setShowToast(true);
     }
-    console.log("Email sign in:", { email, password })
-  }
+  };
 
-  const handleGoogleSignIn = () => {
-    console.log("Google sign in")
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setShowToast(false);
+    try {
+      if (!email || !password) {
+        setLoading(false);
+        setError("Email and password are required");
+        setShowToast(true);
+        return;
+      }
+      const result = await signInWithEmail(email, password);
+      console.log("Sign in result:", result);
+      if (!result || !result.user) {
+        setError("Failed to login user");
+        setShowToast(true);
+        setLoading(false);
+        return;
+      }
+      if (result && result.user.email) {
+        await handleSignIn({ email: result.user.email, password });
+      }
+      setShowToast(true);
+      setMessage("Email sign in successful!");
+      console.log("Email sign in successful!");
+      router.navigate({ to: "/" });
+    } catch (error: any) {
+      console.error("Sign in error:", error);
+      setError(error.message || "Failed to sign in");
+      setLoading(false);
+      setShowToast(true);
+      return;
+    } finally {
+      setEmail("");
+      setPassword("");
+      setLoading(false);
+    }
+  };
 
-  const handleFacebookSignIn = () => {
-    console.log("Facebook sign in")
-  }
+  const handleGoogleSignIn = async () => {
+    console.log("Google sign in");
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await signInWithGoogle();
+      console.log("Google sign in result:", result);
+      if (result && result.user.email) {
+        await handleSignIn({ name: result.user.displayName || "", email: result.user.email, password: "social" });
+      }
+      setShowToast(true);
+      setMessage("Google sign in successful!");
+      console.log("Google sign in successful!");
+      router.navigate({ to: "/" });
+    } catch (error: any) {
+      console.error("Error with Google sign-in:", error);
+      setLoading(false);
+      setError(error.message || "Failed to sign in with Google");
+      setShowToast(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Typography variant="h6">Loading...</Typography>
-      </Box>
-    )
-  }
+  const handleGithubSignIn = async () => {
+    console.log("Github sign in");
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await signInWithGithub();
+      console.log("GitHub sign in result:", result);
+      if (result && result.user.email) {
+        await handleSignIn({ name: result.user.displayName || "", email: result.user.email, password: "social" });
+      }
+      setShowToast(true);
+      setMessage("GitHub sign in successful!");
+      console.log("GitHub sign in successful!");
+      router.navigate({ to: "/" });
+    } catch (error: any) {
+      console.error("Error with GitHub sign-in:", error);
+      setLoading(false);
+      setError(error.message || "Failed to sign in with GitHub");
+      setShowToast(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (error) {
-    return (
-      <Box
-        sx={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Typography variant="h6" color="error">
-          {error}
-        </Typography>
-      </Box>
-    )
-  }
+  const handleCloseToast = (
+    event?: React.SyntheticEvent | Event,
+    reason?: string
+  ) => {
+    if (reason === "clickaway") {
+      return;
+    }
+    setShowToast(false);
+    setError(null);
+  };
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        padding: 2,
-      }}
-    >
-      <Fade in={true} timeout={800}>
-        <Card
+    <>
+      {/* Toast notifications */}
+      <Snackbar
+        open={showToast && !error}
+        autoHideDuration={3000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseToast}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {message || "Sign in successful!"}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={showToast && !!error}
+        autoHideDuration={3000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseToast}
+          severity="error"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
+
+      {/* Main content */}
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "grey.50",
+          pt: 2,
+          pb: 8,
+        }}
+      >
+        <Paper
+          elevation={3}
           sx={{
-            maxWidth: 400,
+            p: 4,
             width: "100%",
-            background: "rgba(255, 255, 255, 0.1)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-            borderRadius: 4,
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-            overflow: "visible",
+            maxWidth: 400,
+            mx: 2,
           }}
         >
-          <CardContent sx={{ p: 4 }}>
-            <Box textAlign="center" mb={4}>
-              <Typography
-                variant="h4"
-                component="h1"
-                sx={{
-                  color: "white",
-                  fontWeight: "bold",
-                  mb: 1,
-                  textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-                }}
-              >
-                Welcome Back
-              </Typography>
-              <Typography
-                variant="body1"
-                sx={{
-                  color: "rgba(255, 255, 255, 0.8)",
-                  fontSize: "1rem",
-                }}
-              >
-                Sign in to your account
-              </Typography>
-            </Box>
+          <Box sx={{ textAlign: "center", mb: 3 }}>
+            <Typography
+              variant="h4"
+              component="h1"
+              gutterBottom
+              fontWeight="bold"
+            >
+              Sign In
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Please sign in to your account.
+            </Typography>
+          </Box>
 
+          <Box component="form" onSubmit={handleSubmit} sx={{ mb: 3 }}>
             <Stack spacing={3}>
-              {/* Social Login Buttons */}
-              <Stack spacing={2}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  startIcon={<GoogleIcon />}
-                  onClick={handleGoogleSignIn}
-                  sx={{
-                    backgroundColor: "rgba(255, 255, 255, 0.9)",
-                    color: "#333",
-                    py: 1.5,
-                    borderRadius: 2,
-                    textTransform: "none",
-                    fontSize: "1rem",
-                    fontWeight: 500,
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                    "&:hover": {
-                      backgroundColor: "rgba(255, 255, 255, 1)",
-                      transform: "translateY(-1px)",
-                      boxShadow: "0 6px 16px rgba(0, 0, 0, 0.2)",
-                    },
-                    transition: "all 0.2s ease-in-out",
-                  }}
-                >
-                  Continue with Google
-                </Button>
+              <TextField
+                fullWidth
+                label="Email Address"
+                type="email"
+                variant="outlined"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Email color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
 
-                <Button
-                  fullWidth
-                  variant="contained"
-                  startIcon={<FacebookIcon />}
-                  onClick={handleFacebookSignIn}
-                  sx={{
-                    backgroundColor: "#1877F2",
-                    color: "white",
-                    py: 1.5,
-                    borderRadius: 2,
-                    textTransform: "none",
-                    fontSize: "1rem",
-                    fontWeight: 500,
-                    boxShadow: "0 4px 12px rgba(24, 119, 242, 0.3)",
-                    "&:hover": {
-                      backgroundColor: "#166FE5",
-                      transform: "translateY(-1px)",
-                      boxShadow: "0 6px 16px rgba(24, 119, 242, 0.4)",
-                    },
-                    transition: "all 0.2s ease-in-out",
-                  }}
-                >
-                  Continue with Facebook
-                </Button>
-              </Stack>
+              <TextField
+                fullWidth
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                variant="outlined"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Lock color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        aria-label="toggle password visibility"
+                        disabled={loading}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
 
-              <Divider sx={{ my: 2 }}>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "rgba(255, 255, 255, 0.7)",
-                    px: 2,
-                  }}
-                >
-                  or
-                </Typography>
-              </Divider>
-
-              {/* Email Form */}
-              <Box component="form" onSubmit={handleEmailSignIn}>
-                <Stack spacing={3}>
-                  <TextField
-                    fullWidth
-                    type="email"
-                    label="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <EmailIcon sx={{ color: "rgba(255, 255, 255, 0.7)" }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        backgroundColor: "rgba(255, 255, 255, 0.1)",
-                        borderRadius: 2,
-                        "& fieldset": {
-                          borderColor: "rgba(255, 255, 255, 0.3)",
-                        },
-                        "&:hover fieldset": {
-                          borderColor: "rgba(255, 255, 255, 0.5)",
-                        },
-                        "&.Mui-focused fieldset": {
-                          borderColor: "rgba(255, 255, 255, 0.8)",
-                        },
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: "rgba(255, 255, 255, 0.7)",
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        color: "white",
-                      },
-                    }}
-                  />
-
-                  <TextField
-                    fullWidth
-                    type={showPassword ? "text" : "password"}
-                    label="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LockIcon sx={{ color: "rgba(255, 255, 255, 0.7)" }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={handleClickShowPassword}
-                            edge="end"
-                            sx={{ color: "rgba(255, 255, 255, 0.7)" }}
-                          >
-                            {showPassword ? <VisibilityOff /> : <Visibility />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        backgroundColor: "rgba(255, 255, 255, 0.1)",
-                        borderRadius: 2,
-                        "& fieldset": {
-                          borderColor: "rgba(255, 255, 255, 0.3)",
-                        },
-                        "&:hover fieldset": {
-                          borderColor: "rgba(255, 255, 255, 0.5)",
-                        },
-                        "&.Mui-focused fieldset": {
-                          borderColor: "rgba(255, 255, 255, 0.8)",
-                        },
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: "rgba(255, 255, 255, 0.7)",
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        color: "white",
-                      },
-                    }}
-                  />
-
-                  <Button
-                    type="submit"
-                    fullWidth
-                    variant="contained"
-                    sx={{
-                      backgroundColor: "rgba(255, 255, 255, 0.2)",
-                      color: "white",
-                      py: 1.5,
-                      borderRadius: 2,
-                      textTransform: "none",
-                      fontSize: "1rem",
-                      fontWeight: 600,
-                      border: "1px solid rgba(255, 255, 255, 0.3)",
-                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                      "&:hover": {
-                        backgroundColor: "rgba(255, 255, 255, 0.3)",
-                        transform: "translateY(-1px)",
-                        boxShadow: "0 6px 16px rgba(0, 0, 0, 0.15)",
-                      },
-                      transition: "all 0.2s ease-in-out",
-                    }}
-                  >
-                    Sign In
-                  </Button>
-                </Stack>
-              </Box>
-
-              <Box textAlign="center" mt={2}>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "rgba(255, 255, 255, 0.7)",
-                  }}
-                >
-                  {"Don't have an account? "}
-                  <Button
-                    variant="text"
-                    sx={{
-                      color: "white",
-                      textDecoration: "underline",
-                      textTransform: "none",
-                      p: 0,
-                      minWidth: "auto",
-                      "&:hover": {
-                        backgroundColor: "transparent",
-                        textDecoration: "underline",
-                      },
-                    }}
-                  >
-                    Sign up
-                  </Button>
-                </Typography>
-              </Box>
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                size="large"
+                disabled={loading}
+                sx={{ py: 1.5, mt: 2 }}
+              >
+                {loading ? "Loading..." : "Sign in"}
+              </Button>
             </Stack>
-          </CardContent>
-        </Card>
-      </Fade>
-    </Box>
-  )
+          </Box>
+
+          <Divider sx={{ my: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Or continue with
+            </Typography>
+          </Divider>
+
+          <Stack spacing={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              size="large"
+              startIcon={<Google />}
+              onClick={() => handleGoogleSignIn()}
+              disabled={loading}
+              sx={{
+                py: 1.5,
+                borderColor: "grey.300",
+                color: "text.primary",
+                "&:hover": {
+                  borderColor: "grey.400",
+                  bgcolor: "grey.50",
+                },
+              }}
+            >
+              Continue with Google
+            </Button>
+
+            <Button
+              fullWidth
+              variant="outlined"
+              size="large"
+              startIcon={<GitHub />}
+              onClick={() => handleGithubSignIn()}
+              disabled={loading}
+              sx={{
+                py: 1.5,
+                borderColor: "grey.300",
+                color: "text.primary",
+                "&:hover": {
+                  borderColor: "grey.400",
+                  bgcolor: "grey.50",
+                },
+              }}
+            >
+              Continue with GitHub
+            </Button>
+          </Stack>
+
+          <Box sx={{ textAlign: "center", mt: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Don't have an account? <Link to="/sign-up">Sign up</Link>
+            </Typography>
+          </Box>
+        </Paper>
+      </Box>
+    </>
+  );
 }

@@ -1,229 +1,418 @@
-import * as React from 'react';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Checkbox from '@mui/material/Checkbox';
-import CssBaseline from '@mui/material/CssBaseline';
-import Divider from '@mui/material/Divider';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import FormLabel from '@mui/material/FormLabel';
-import FormControl from '@mui/material/FormControl';
-import Link from '@mui/material/Link';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
-import Stack from '@mui/material/Stack';
-import MuiCard from '@mui/material/Card';
-import { styled } from '@mui/material/styles';
-import GoogleIcon from '@mui/icons-material/Google';
-import FacebookIcon from '@mui/icons-material/Facebook';
+// 'use client'
 
-const Card = styled(MuiCard)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  alignSelf: 'center',
-  width: '100%',
-  padding: theme.spacing(4),
-  gap: theme.spacing(2),
-  margin: 'auto',
-  boxShadow:
-    'hsla(220, 30%, 5%, 0.05) 0px 5px 15px 0px, hsla(220, 25%, 10%, 0.05) 0px 15px 35px -5px',
-  [theme.breakpoints.up('sm')]: {
-    width: '450px',
-  },
-  ...theme.applyStyles('dark', {
-    boxShadow:
-      'hsla(220, 30%, 5%, 0.5) 0px 5px 15px 0px, hsla(220, 25%, 10%, 0.08) 0px 15px 35px -5px',
-  }),
-}));
+import React, { useState } from "react";
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Paper,
+  Divider,
+  Stack,
+  IconButton,
+  InputAdornment,
+  Alert,
+  Snackbar,
+} from "@mui/material";
+import {
+  Google,
+  GitHub,
+  Visibility,
+  VisibilityOff,
+  Person,
+  Email,
+  Lock,
+} from "@mui/icons-material";
+import { saveToken, saveUser } from "~/store";
+import { Link, useRouter } from "@tanstack/react-router";
+import { User } from "firebase/auth";
+import { signInWithGithub, signInWithGoogle, signUp } from "~/lib/firebase";
 
-const SignUpContainer = styled(Stack)(({ theme }) => ({
-  height: 'calc((1 - var(--template-frame-height, 0)) * 100dvh)',
-  minHeight: '100%',
-  padding: theme.spacing(2),
-  [theme.breakpoints.up('sm')]: {
-    padding: theme.spacing(4),
-  },
-  '&::before': {
-    content: '""',
-    display: 'block',
-    position: 'absolute',
-    zIndex: -1,
-    inset: 0,
-    backgroundImage:
-      'radial-gradient(ellipse at 50% 50%, hsl(210, 100%, 97%), hsl(0, 0%, 100%))',
-    backgroundRepeat: 'no-repeat',
-    ...theme.applyStyles('dark', {
-      backgroundImage:
-        'radial-gradient(at 50% 50%, hsla(210, 100%, 16%, 0.5), hsl(220, 30%, 5%))',
-    }),
-  },
-}));
+export default function SignUp() {
+  const router = useRouter();
 
-export default function SignUp(props: { disableCustomTheme?: boolean }) {
-  const [emailError, setEmailError] = React.useState(false);
-  const [emailErrorMessage, setEmailErrorMessage] = React.useState('');
-  const [passwordError, setPasswordError] = React.useState(false);
-  const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('');
-  const [nameError, setNameError] = React.useState(false);
-  const [nameErrorMessage, setNameErrorMessage] = React.useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [showToast, setShowToast] = useState(false);
 
-  const validateInputs = () => {
-    const email = document.getElementById('email') as HTMLInputElement;
-    const password = document.getElementById('password') as HTMLInputElement;
-    const name = document.getElementById('name') as HTMLInputElement;
+  const saveUserDB = async (userData: {
+    name: string;
+    email: string;
+    password: string;
+  }) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      });
 
-    let isValid = true;
-
-    if (!email.value || !/\S+@\S+\.\S+/.test(email.value)) {
-      setEmailError(true);
-      setEmailErrorMessage('Please enter a valid email address.');
-      isValid = false;
-    } else {
-      setEmailError(false);
-      setEmailErrorMessage('');
+      if (response.status !== 201) {
+        const errorData = await response.json();
+        console.error("Error saving user to MongoDB:", errorData);
+        setError(errorData.message || "Failed to save user");
+        setShowToast(true);
+        return;
+      }
+      const data = await response.json();
+      console.log("User saved to MongoDB:", data);
+      saveUser(data.user);
+      saveToken(data.token);
+      return data;
+    } catch (error) {
+      console.error("Error saving user to MongoDB:", error);
+      setError("An error occurred while saving user data");
+      setShowToast(true);
     }
-
-    if (!password.value || password.value.length < 6) {
-      setPasswordError(true);
-      setPasswordErrorMessage('Password must be at least 6 characters long.');
-      isValid = false;
-    } else {
-      setPasswordError(false);
-      setPasswordErrorMessage('');
-    }
-
-    if (!name.value || name.value.length < 1) {
-      setNameError(true);
-      setNameErrorMessage('Name is required.');
-      isValid = false;
-    } else {
-      setNameError(false);
-      setNameErrorMessage('');
-    }
-
-    return isValid;
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    if (nameError || emailError || passwordError) {
-      event.preventDefault();
+  const handleSignIn = async ({
+    name,
+    email,
+    password,
+  }: {
+    name?: string;
+    email: string;
+    password: string;
+  }) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, email, password }),
+      });
+      if (response.status !== 200) {
+        const errorData = await response.json();
+        console.error("Error sign in user:", errorData);
+        setError(errorData.message || "Failed to sign in user");
+        setShowToast(true);
+      }
+      const data = await response.json();
+      saveUser(data.user);
+      console.log("Stored User saved:", data.user);
+      saveToken(data.token);
+      return data;
+    } catch (error) {
+      console.error("Error signin:", error);
+      setError("Failed to sign in user");
+      setShowToast(true);
+    }
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+    setShowToast(false);
+    try {
+      if (!name || !email || !password) {
+        setLoading(false);
+        setError("All fields are required");
+        setShowToast(true);
+        return;
+      }
+
+      const result = await signUp(email, password);
+      console.log("Sign up result:", result);
+      if (!result || !result.user) {
+        setError("Failed to create user");
+        setShowToast(true);
+        setLoading(false);
+        return;
+      }
+      console.log("Stored User saved:", result.user);
+      await saveUserDB({
+        name: name,
+        email: result.user.email || "",
+        password: password,
+      });
+      setShowToast(true);
+      setMessage("Sign up successful!");
+      console.log("Sign up successful!");
+      router.navigate({ to: "/" });
+    } catch (error: any) {
+      console.error("Error during sign up:", error);
+      setLoading(false);
+      setError(error.message || "Failed to sign up");
+      setShowToast(true);
+    } finally {
+      setName("");
+      setEmail("");
+      setPassword("");
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    console.log("Google sign in");
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await signInWithGoogle();
+      console.log("Google sign in result:", result);
+      if (result && result.user.email) {
+        await handleSignIn({ name: result.user.displayName || "", email: result.user.email, password: "social" });
+      }
+      setShowToast(true);
+      setMessage("Google sign in successful!");
+      console.log("Google sign in successful!");
+      router.navigate({ to: "/" });
+    } catch (error: any) {
+      console.error("Error with Google sign-in:", error);
+      setLoading(false);
+      setError(error.message || "Failed to sign in with Google");
+      setShowToast(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGithubSignIn = async () => {
+    console.log("Github sign in");
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await signInWithGithub();
+      console.log("GitHub sign in result:", result);
+      if (result && result.user.email) {
+        await handleSignIn({ name: result.user.displayName || "", email: result.user.email, password: "social" });
+      }
+      setShowToast(true);
+      setMessage("GitHub sign in successful!");
+      console.log("GitHub sign in successful!");
+      router.navigate({ to: "/" });
+    } catch (error: any) {
+      console.error("Error with GitHub sign-in:", error);
+      setLoading(false);
+      setError(error.message || "Failed to sign in with GitHub");
+      setShowToast(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseToast = (
+    event?: React.SyntheticEvent | Event,
+    reason?: string
+  ) => {
+    if (reason === "clickaway") {
       return;
     }
-    const data = new FormData(event.currentTarget);
-    console.log({
-      name: data.get('name'),
-      lastName: data.get('lastName'),
-      email: data.get('email'),
-      password: data.get('password'),
-    });
+    setShowToast(false);
+    setError(null);
   };
 
   return (
     <>
-      <SignUpContainer direction="column" justifyContent="space-between">
-        <Card variant="outlined">
-          <Typography
-            component="h1"
-            variant="h4"
-            sx={{ width: '100%', fontSize: 'clamp(2rem, 10vw, 2.15rem)' }}
-          >
-            Sign up
-          </Typography>
-          <Box
-            component="form"
-            onSubmit={handleSubmit}
-            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-          >
-            <FormControl>
-              <FormLabel htmlFor="name">Full name</FormLabel>
-              <TextField
-                autoComplete="name"
-                name="name"
-                required
-                fullWidth
-                id="name"
-                placeholder="Jon Snow"
-                error={nameError}
-                helperText={nameErrorMessage}
-                color={nameError ? 'error' : 'primary'}
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel htmlFor="email">Email</FormLabel>
-              <TextField
-                required
-                fullWidth
-                id="email"
-                placeholder="your@email.com"
-                name="email"
-                autoComplete="email"
-                variant="outlined"
-                error={emailError}
-                helperText={emailErrorMessage}
-                color={passwordError ? 'error' : 'primary'}
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel htmlFor="password">Password</FormLabel>
-              <TextField
-                required
-                fullWidth
-                name="password"
-                placeholder="••••••"
-                type="password"
-                id="password"
-                autoComplete="new-password"
-                variant="outlined"
-                error={passwordError}
-                helperText={passwordErrorMessage}
-                color={passwordError ? 'error' : 'primary'}
-              />
-            </FormControl>
-            <FormControlLabel
-              control={<Checkbox value="allowExtraEmails" color="primary" />}
-              label="I want to receive updates via email."
-            />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              onClick={validateInputs}
+      {/* Toast notifications */}
+      <Snackbar
+        open={showToast && !error}
+        autoHideDuration={3000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseToast}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {message || "Sign up successful!"}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={showToast && !!error}
+        autoHideDuration={3000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseToast}
+          severity="error"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
+
+      {/* Main content */}
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "grey.50",
+          pt: 2,
+          pb: 8,
+        }}
+      >
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            width: "100%",
+            maxWidth: 400,
+            mx: 2,
+          }}
+        >
+          <Box sx={{ textAlign: "center", mb: 3 }}>
+            <Typography
+              variant="h4"
+              component="h1"
+              gutterBottom
+              fontWeight="bold"
             >
-              Sign up
-            </Button>
-          </Box>
-          <Divider>
-            <Typography sx={{ color: 'text.secondary' }}>or</Typography>
-          </Divider>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => alert('Sign up with Google')}
-              startIcon={<GoogleIcon />}
-            >
-              Sign up with Google
-            </Button>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => alert('Sign up with Facebook')}
-              startIcon={<FacebookIcon />}
-            >
-              Sign up with Facebook
-            </Button>
-            <Typography sx={{ textAlign: 'center' }}>
-              Already have an account?{' '}
-              <Link
-                href="/material-ui/getting-started/templates/sign-in/"
-                variant="body2"
-                sx={{ alignSelf: 'center' }}
-              >
-                Sign in
-              </Link>
+              Sign Up
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Create your account to get started
             </Typography>
           </Box>
-        </Card>
-      </SignUpContainer>
+
+          <Box component="form" onSubmit={handleSubmit} sx={{ mb: 3 }}>
+            <Stack spacing={3}>
+              <TextField
+                fullWidth
+                label="Full Name"
+                variant="outlined"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Person color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <TextField
+                fullWidth
+                label="Email Address"
+                type="email"
+                variant="outlined"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Email color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <TextField
+                fullWidth
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                variant="outlined"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Lock color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        aria-label="toggle password visibility"
+                        disabled={loading}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                size="large"
+                disabled={loading}
+                sx={{ py: 1.5, mt: 2 }}
+              >
+                {loading ? "Loading..." : "Create Account"}
+              </Button>
+            </Stack>
+          </Box>
+
+          <Divider sx={{ my: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Or continue with
+            </Typography>
+          </Divider>
+
+          <Stack spacing={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              size="large"
+              startIcon={<Google />}
+              onClick={() => handleGoogleSignIn()}
+              disabled={loading}
+              sx={{
+                py: 1.5,
+                borderColor: "grey.300",
+                color: "text.primary",
+                "&:hover": {
+                  borderColor: "grey.400",
+                  bgcolor: "grey.50",
+                },
+              }}
+            >
+              Continue with Google
+            </Button>
+
+            <Button
+              fullWidth
+              variant="outlined"
+              size="large"
+              startIcon={<GitHub />}
+              onClick={() => handleGithubSignIn()}
+              disabled={loading}
+              sx={{
+                py: 1.5,
+                borderColor: "grey.300",
+                color: "text.primary",
+                "&:hover": {
+                  borderColor: "grey.400",
+                  bgcolor: "grey.50",
+                },
+              }}
+            >
+              Continue with GitHub
+            </Button>
+          </Stack>
+
+          <Box sx={{ textAlign: "center", mt: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Already have an account? <Link to="/sign-in">Sign in</Link>
+            </Typography>
+          </Box>
+        </Paper>
+      </Box>
     </>
   );
 }
