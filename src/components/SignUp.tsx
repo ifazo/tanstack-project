@@ -1,5 +1,3 @@
-// 'use client'
-
 import React, { useState } from "react";
 import {
   Box,
@@ -9,10 +7,11 @@ import {
   Paper,
   Divider,
   Stack,
-  IconButton,
   InputAdornment,
-  Alert,
+  IconButton,
   Snackbar,
+  Alert,
+  Avatar,
 } from "@mui/material";
 import {
   Google,
@@ -25,7 +24,6 @@ import {
 } from "@mui/icons-material";
 import { saveToken, saveUser } from "~/store";
 import { Link, useRouter } from "@tanstack/react-router";
-import { User } from "firebase/auth";
 import { signInWithGithub, signInWithGoogle, signUp } from "~/lib/firebase";
 
 export default function SignUp() {
@@ -35,165 +33,132 @@ export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
 
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const IMGBB_API_KEY = import.meta.env.VITE_IMGBB_API_KEY as string;
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setImageFile(file);
+    setImagePreview(file ? URL.createObjectURL(file) : null);
+  };
+
+  const uploadToImgbb = async (file: File) => {
+    if (!IMGBB_API_KEY) {
+      setError("Image upload configuration missing");
+      setShowToast(true);
+      return;
+    }
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch(
+        `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
+        { method: "POST", body: formData }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message || "Upload failed");
+      return data.data.display_url as string;
+    } catch (err: any) {
+      setError(err.message || "Failed to upload image");
+      setShowToast(true);
+    }
+  };
+
   const saveUserDB = async (userData: {
     name: string;
+    image?: string;
     email: string;
     password: string;
   }) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),
       });
 
-      if (response.status !== 201) {
-        const errorData = await response.json();
-        console.error("Error saving user to MongoDB:", errorData);
-        setError(errorData.message || "Failed to save user");
-        setShowToast(true);
-        return;
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to save user");
       }
-      const data = await response.json();
-      console.log("User saved to MongoDB:", data);
+
+      const data = await res.json();
       saveUser(data.user);
       saveToken(data.token);
       return data;
-    } catch (error) {
-      console.error("Error saving user to MongoDB:", error);
-      setError("An error occurred while saving user data");
+    } catch (err: any) {
+      setError(err.message);
       setShowToast(true);
     }
   };
 
-  const handleSignIn = async ({
-    name,
-    email,
-    password,
-  }: {
-    name?: string;
-    email: string;
-    password: string;
-  }) => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, email, password }),
-      });
-      if (response.status !== 200) {
-        const errorData = await response.json();
-        console.error("Error sign in user:", errorData);
-        setError(errorData.message || "Failed to sign in user");
-        setShowToast(true);
-      }
-      const data = await response.json();
-      saveUser(data.user);
-      console.log("Stored User saved:", data.user);
-      saveToken(data.token);
-      return data;
-    } catch (error) {
-      console.error("Error signin:", error);
-      setError("Failed to sign in user");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError("Email & Password are required");
       setShowToast(true);
+      return;
     }
-  };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
     setLoading(true);
-    setError(null);
-    setShowToast(false);
     try {
-      if (!name || !email || !password) {
-        setLoading(false);
-        setError("All fields are required");
-        setShowToast(true);
-        return;
-      }
-
       const result = await signUp(email, password);
-      console.log("Sign up result:", result);
-      if (!result || !result.user) {
-        setError("Failed to create user");
-        setShowToast(true);
-        setLoading(false);
-        return;
-      }
-      console.log("Stored User saved:", result.user);
+      if (!result?.user) throw new Error("Failed to create user");
+
+      let uploadedImageUrl;
+      if (imageFile) uploadedImageUrl = await uploadToImgbb(imageFile);
+
       await saveUserDB({
-        name: name,
-        email: result.user.email || "",
-        password: password,
+        name,
+        image: uploadedImageUrl,
+        email: result.user.email!,
+        password,
       });
-      setShowToast(true);
+
       setMessage("Sign up successful!");
-      console.log("Sign up successful!");
-      router.navigate({ to: "/" });
-    } catch (error: any) {
-      console.error("Error during sign up:", error);
-      setLoading(false);
-      setError(error.message || "Failed to sign up");
       setShowToast(true);
-    } finally {
+      router.navigate({ to: "/" });
+
       setName("");
       setEmail("");
       setPassword("");
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    console.log("Google sign in");
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await signInWithGoogle();
-      console.log("Google sign in result:", result);
-      if (result && result.user.email) {
-        await handleSignIn({ name: result.user.displayName || "", email: result.user.email, password: "social" });
-      }
-      setShowToast(true);
-      setMessage("Google sign in successful!");
-      console.log("Google sign in successful!");
-      router.navigate({ to: "/" });
-    } catch (error: any) {
-      console.error("Error with Google sign-in:", error);
-      setLoading(false);
-      setError(error.message || "Failed to sign in with Google");
+      setImageFile(null);
+      setImagePreview(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to sign up");
       setShowToast(true);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGithubSignIn = async () => {
-    console.log("Github sign in");
+  const handleSocialSignIn = async (provider: "google" | "github") => {
     setLoading(true);
-    setError(null);
     try {
-      const result = await signInWithGithub();
-      console.log("GitHub sign in result:", result);
-      if (result && result.user.email) {
-        await handleSignIn({ name: result.user.displayName || "", email: result.user.email, password: "social" });
+      const result =
+        provider === "google" ? await signInWithGoogle() : await signInWithGithub();
+
+      if (result?.user?.email) {
+        await saveUserDB({
+          name: result.user.displayName || "",
+          image: result.user.photoURL || "",
+          email: result.user.email,
+          password: "social",
+        });
+        setMessage(`${provider} sign in successful!`);
+        setShowToast(true);
+        router.navigate({ to: "/" });
       }
-      setShowToast(true);
-      setMessage("GitHub sign in successful!");
-      console.log("GitHub sign in successful!");
-      router.navigate({ to: "/" });
-    } catch (error: any) {
-      console.error("Error with GitHub sign-in:", error);
-      setLoading(false);
-      setError(error.message || "Failed to sign in with GitHub");
+    } catch (err: any) {
+      setError(err.message || `Failed to sign in with ${provider}`);
       setShowToast(true);
     } finally {
       setLoading(false);
@@ -299,6 +264,31 @@ export default function SignUp() {
                 }}
               />
 
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Avatar src={imagePreview || undefined} alt={name} />
+                <Button variant="outlined" component="label" disabled={loading}>
+                  Upload Image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={handleImageChange}
+                  />
+                </Button>
+                {imagePreview && (
+                  <Button
+                    variant="text"
+                    color="error"
+                    onClick={() => {
+                      setImageFile(null);
+                      setImagePreview(null);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </Stack>
+
               <TextField
                 fullWidth
                 label="Email Address"
@@ -370,7 +360,7 @@ export default function SignUp() {
               variant="outlined"
               size="large"
               startIcon={<Google />}
-              onClick={() => handleGoogleSignIn()}
+              onClick={() => handleSocialSignIn("google")}
               disabled={loading}
               sx={{
                 py: 1.5,
@@ -390,7 +380,7 @@ export default function SignUp() {
               variant="outlined"
               size="large"
               startIcon={<GitHub />}
-              onClick={() => handleGithubSignIn()}
+              onClick={() => handleSocialSignIn("github")}
               disabled={loading}
               sx={{
                 py: 1.5,

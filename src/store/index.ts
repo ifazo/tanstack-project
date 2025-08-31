@@ -1,6 +1,9 @@
 import { Store } from "@tanstack/react-store";
 
+const isBrowser = typeof window !== 'undefined';
+
 const loadFromLocalStorage = (key: string) => {
+  if (!isBrowser) return null;
   try {
     const item = localStorage.getItem(key);
     return item ? JSON.parse(item) : null;
@@ -11,6 +14,7 @@ const loadFromLocalStorage = (key: string) => {
 };
 
 const saveToLocalStorage = (key: string, value: any) => {
+  if (!isBrowser) return;
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (error) {
@@ -19,6 +23,7 @@ const saveToLocalStorage = (key: string, value: any) => {
 };
 
 const removeFromLocalStorage = (key: string) => {
+  if (!isBrowser) return;
   try {
     localStorage.removeItem(key);
   } catch (error) {

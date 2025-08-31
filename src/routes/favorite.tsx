@@ -1,18 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getUser, getToken } from "~/store";
 
 export const Route = createFileRoute("/favorite")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const user = getUser();
-  const token = getToken();
+  
   return (
     <div>
-      User: {user ? user.email : "Not logged in"}
+      <h1>Favorites</h1>
       <br />
-      Token: {token ? token : "No token available"}
+      <p>This is the favorites page.</p>
+      <p>Here you can view your favorite items.</p>
     </div>
   );
 }

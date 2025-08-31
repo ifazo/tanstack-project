@@ -1,25 +1,30 @@
 export interface Message {
-  id: string
+  _id: string
   text: string
   senderId: string
-  senderName: string
-  timestamp: Date
-  type: "text" | "image" | "file"
+  attachments: string[]
+  createdAt: Date
+}
+
+export interface Chat {
+  _id: string
+  type: "personal" | "group"
+  participants: User[]
+  name: string
+  image: string
+  messages: Message[],
+  lastMessage?: Message
+  createdAt: Date
 }
 
 export interface Conversation {
-  id: string
-  name: string
-  avatar: string
-  lastMessage?: string
-  lastMessageTime?: Date
-  unreadCount: number
-  isOnline: boolean
-  isTyping?: boolean
+  _id: string
+  chats: Chat[],
+  total: number
 }
 
 export interface User {
-  id: string
+  _id: string
   name: string
   avatar: string
   isOnline: boolean

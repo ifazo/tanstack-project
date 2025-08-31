@@ -1,4 +1,3 @@
-import type React from "react";
 import { useState } from "react";
 import {
   Box,
@@ -35,129 +34,89 @@ export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [message, setMessage] = useState("");
 
-  const handleSignIn = async ({
-    name,
-    email,
-    password,
-  }: {
+  const handleSignIn = async (user: {
     name?: string;
+    image?: string;
     email: string;
     password: string;
   }) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, email, password }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(user),
       });
-      if (response.status !== 200) {
-        const errorData = await response.json();
-        console.error("Error sign in user:", errorData);
-        setError(errorData.message || "Failed to sign in user");
-        setShowToast(true);
-        return;
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to sign in");
       }
-      const data = await response.json();
-      console.log("Sign in user response:", data);
+
+      const data = await res.json();
       saveUser(data.user);
       saveToken(data.token);
       return data;
-    } catch (error) {
-      console.error("Error signin:", error);
-      setError("Failed to sign in user");
+    } catch (err: any) {
+      setError(err.message || "Sign in failed");
       setShowToast(true);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setShowToast(false);
-    try {
-      if (!email || !password) {
-        setLoading(false);
-        setError("Email and password are required");
-        setShowToast(true);
-        return;
-      }
-      const result = await signInWithEmail(email, password);
-      console.log("Sign in result:", result);
-      if (!result || !result.user) {
-        setError("Failed to login user");
-        setShowToast(true);
-        setLoading(false);
-        return;
-      }
-      if (result && result.user.email) {
-        await handleSignIn({ email: result.user.email, password });
-      }
-      setShowToast(true);
-      setMessage("Email sign in successful!");
-      console.log("Email sign in successful!");
-      router.navigate({ to: "/" });
-    } catch (error: any) {
-      console.error("Sign in error:", error);
-      setError(error.message || "Failed to sign in");
-      setLoading(false);
+    if (!email || !password) {
+      setError("Email and password are required");
       setShowToast(true);
       return;
-    } finally {
+    }
+
+    setLoading(true);
+    try {
+      const result = await signInWithEmail(email, password);
+      if (!result?.user?.email) throw new Error("Invalid login");
+
+      await handleSignIn({ email: result.user.email, password });
+
+      setMessage("Email sign in successful!");
+      setShowToast(true);
+      router.navigate({ to: "/" });
+
+      // reset only after success
       setEmail("");
       setPassword("");
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    console.log("Google sign in");
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await signInWithGoogle();
-      console.log("Google sign in result:", result);
-      if (result && result.user.email) {
-        await handleSignIn({ name: result.user.displayName || "", email: result.user.email, password: "social" });
-      }
-      setShowToast(true);
-      setMessage("Google sign in successful!");
-      console.log("Google sign in successful!");
-      router.navigate({ to: "/" });
-    } catch (error: any) {
-      console.error("Error with Google sign-in:", error);
-      setLoading(false);
-      setError(error.message || "Failed to sign in with Google");
+    } catch (err: any) {
+      setError(err.message || "Failed to sign in");
       setShowToast(true);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGithubSignIn = async () => {
-    console.log("Github sign in");
+  const handleSocialSignIn = async (provider: "google" | "github") => {
     setLoading(true);
-    setError(null);
     try {
-      const result = await signInWithGithub();
-      console.log("GitHub sign in result:", result);
-      if (result && result.user.email) {
-        await handleSignIn({ name: result.user.displayName || "", email: result.user.email, password: "social" });
-      }
+      const result =
+        provider === "google" ? await signInWithGoogle() : await signInWithGithub();
+
+      if (!result?.user?.email) throw new Error(`${provider} login failed`);
+
+      await handleSignIn({
+        name: result.user.displayName || "",
+        image: result.user.photoURL || "",
+        email: result.user.email,
+        password: "social",
+      });
+
+      setMessage(`${provider} sign in successful!`);
       setShowToast(true);
-      setMessage("GitHub sign in successful!");
-      console.log("GitHub sign in successful!");
       router.navigate({ to: "/" });
-    } catch (error: any) {
-      console.error("Error with GitHub sign-in:", error);
-      setLoading(false);
-      setError(error.message || "Failed to sign in with GitHub");
+    } catch (err: any) {
+      setError(err.message || `Failed to sign in with ${provider}`);
       setShowToast(true);
     } finally {
       setLoading(false);
@@ -318,7 +277,7 @@ export default function SignIn() {
               variant="outlined"
               size="large"
               startIcon={<Google />}
-              onClick={() => handleGoogleSignIn()}
+              onClick={() => handleSocialSignIn("google")}
               disabled={loading}
               sx={{
                 py: 1.5,
@@ -338,7 +297,7 @@ export default function SignIn() {
               variant="outlined"
               size="large"
               startIcon={<GitHub />}
-              onClick={() => handleGithubSignIn()}
+              onClick={() => handleSocialSignIn("github")}
               disabled={loading}
               sx={{
                 py: 1.5,

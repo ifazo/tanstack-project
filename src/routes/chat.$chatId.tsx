@@ -1,26 +1,26 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import ConversationList from "~/components/ConversationList";
+import ChatList from "~/components/ChatList";
 import { getToken, getUser } from "~/store";
 import { Chat } from "~/types";
 
-export const Route = createFileRoute("/chat/")({
+export const Route = createFileRoute("/chat/$chatId")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const user = getUser();
+  const { chatId } = useParams({ from: "/chat/$chatId" });
   const token = getToken();
 
-  const [conversations, setConversations] = useState<Chat[]>([]);
+  const [chat, setChat] = useState<Chat | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
+  
   useEffect(() => {
-    async function fetchConversations() {
+    async function fetchMessages() {
       try {
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/chats/user/${user?._id}`,
+          `${import.meta.env.VITE_API_URL}/chats/${chatId}/messages`,
           {
             method: "GET",
             headers: {
@@ -30,22 +30,21 @@ function RouteComponent() {
           }
         );
         const data = await res.json();
-        setConversations(data.chats)
-        console.log("Fetched user conversation list:", data);
+        setChat(data);
+        console.log("Fetched user chat messages:", data);
       } catch (err) {
-        setError("Failed to fetch conversations");
-        console.error("Failed to fetch conversations", err);
+        setError("Failed to fetch chat messages");
+        console.error("Failed to fetch chat messages", err);
       } finally {
         setLoading(false);
       }
     }
+    fetchMessages();
+  }, [chatId])
 
-    fetchConversations();
-  }, [user?._id, token]);
-  
   return (
     <div>
-      <ConversationList conversations={conversations} loading={loading} error={error} />
+      {chat && <ChatList chat={chat} loading={loading} error={error} />}
     </div>
   );
 }
